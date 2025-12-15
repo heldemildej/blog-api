@@ -7,6 +7,6 @@ namespace BlogAPI.Data
     {
         public BlogContext(DbContextOptions<BlogContext> options) : base(options) { }
 
-        public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<Usuario> Usuarios { get; set; } = null!;
     }
 }
