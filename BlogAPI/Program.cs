@@ -1,35 +1,52 @@
-namespace BlogAPI
+using BlogAPI.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// SQL Server
+builder.Services.AddDbContext<BlogContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("BlogDatabase"))
+);
+
+// JWT
+var jwtConfig = builder.Configuration.GetSection("Jwt");
+var chave = Encoding.UTF8.GetBytes(jwtConfig["ChaveSecreta"]);
+
+builder.Services.AddAuthentication(options =>
 {
-    public class Program
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        public static void Main(string[] args)
-        {
-            var builder = WebApplication.CreateBuilder(args);
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtConfig["Emissor"],
+        ValidAudience = jwtConfig["Audiencia"],
+        IssuerSigningKey = new SymmetricSecurityKey(chave)
+    };
+});
 
-            // Add services to the container.
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
-            builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+var app = builder.Build();
 
-            var app = builder.Build();
+app.UseSwagger();
+app.UseSwaggerUI();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
+app.UseHttpsRedirection();
 
-            app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 
-            app.UseAuthorization();
-
-
-            app.MapControllers();
-
-            app.Run();
-        }
-    }
-}
+app.MapControllers();
+app.Run();
