@@ -48,5 +48,20 @@ namespace BlogAPI.Controllers
 
             return Ok(post);
         }
+
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> Obter(int id)
+        {
+            var post = await _context.Posts
+                .Include(p => p.Autor)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (post == null)
+                return NotFound("Post não encontrado.");
+
+            return Ok(post);
+        }
+
     }
 }
