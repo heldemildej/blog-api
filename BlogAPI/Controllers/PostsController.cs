@@ -29,8 +29,11 @@ namespace BlogAPI.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Criar(PostDto dto)
+        public async Task<IActionResult> Criar([FromBody]PostDto dto)
         {
+            if (dto == null)
+                return BadRequest("Dados inválidos.");
+
             var autor = await _context.Autores.FindAsync(dto.AutorId);
             if (autor == null)
                 return BadRequest("Autor não encontrado.");
