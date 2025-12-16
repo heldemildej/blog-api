@@ -6,12 +6,12 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// SQL Server
+// Configuração do SQL Server
 builder.Services.AddDbContext<BlogContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("BlogDatabase"))
 );
 
-// JWT
+// Configuração do JWT
 var jwtConfig = builder.Configuration.GetSection("Jwt");
 var chave = Encoding.UTF8.GetBytes(jwtConfig["ChaveSecreta"]);
 
