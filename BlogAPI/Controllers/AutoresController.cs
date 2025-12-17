@@ -21,7 +21,13 @@ namespace BlogAPI.Controllers
         [HttpGet]
         public IActionResult ListarAutores()
         {
-            var autores = _context.Autores.ToList();
+            var autores = _context.Autores
+                .Select(a => new AutorDto
+                {
+                    Nome = a.Nome,
+                    Email = a.Email
+                }).ToList();
+
             return Ok(autores);
         }
 
@@ -29,7 +35,14 @@ namespace BlogAPI.Controllers
         [HttpGet("{id}")]
         public IActionResult ObterAutor(int id)
         {
-            var autor = _context.Autores.Find(id);
+            var autor = _context.Autores
+                .Where(a => a.Id == id)
+                .Select(a => new AutorDto
+                {
+                    Nome = a.Nome,
+                    Email = a.Email
+                }).FirstOrDefault();
+
             if (autor == null)
                 return NotFound("Autor não encontrado.");
 
@@ -52,7 +65,11 @@ namespace BlogAPI.Controllers
             _context.Autores.Add(autor);
             _context.SaveChanges();
 
-            return CreatedAtAction(nameof(ObterAutor), new { id = autor.Id }, autor);
+            return CreatedAtAction(nameof(ObterAutor), new { id = autor.Id }, new AutorDto
+            {
+                Nome = autor.Nome,
+                Email = autor.Email
+            });
         }
 
         // PUT /autores/{id}
@@ -67,7 +84,11 @@ namespace BlogAPI.Controllers
             autor.Email = dto.Email;
             _context.SaveChanges();
 
-            return Ok(autor);
+            return Ok(new AutorDto
+            {
+                Nome = autor.Nome,
+                Email = autor.Email
+            });
         }
 
         // DELETE /autores/{id}
@@ -93,9 +114,21 @@ namespace BlogAPI.Controllers
                 return NotFound("Autor não encontrado.");
 
             var posts = _context.Posts
-                .Include(p => p.Autor)
                 .Where(p => p.AutorId == id)
-                .ToList();
+                .Select(p => new PostResponseDto
+                {
+                    Id = p.Id,
+                    Titulo = p.Titulo,
+                    Conteudo = p.Conteudo,
+                    Categoria = p.Categoria,
+                    CriadoEm = p.CriadoEm,
+                    Views = p.Views,
+                    Autor = new AutorDto
+                    {
+                        Nome = p.Autor.Nome,
+                        Email = p.Autor.Email
+                    }
+                }).ToList();
 
             return Ok(posts);
         }
