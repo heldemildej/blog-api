@@ -30,7 +30,6 @@ namespace BlogAPI.Controllers
         public IActionResult ObterAutor(int id)
         {
             var autor = _context.Autores.Find(id);
-
             if (autor == null)
                 return NotFound("Autor não encontrado.");
 
@@ -39,8 +38,11 @@ namespace BlogAPI.Controllers
 
         // POST /autores
         [HttpPost]
-        public IActionResult CriarAutor(CriarAutorDto dto)
+        public IActionResult CriarAutor([FromBody] AutorDto dto)
         {
+            if (dto == null)
+                return BadRequest("Dados inválidos.");
+
             var autor = new Autor
             {
                 Nome = dto.Nome,
@@ -55,16 +57,14 @@ namespace BlogAPI.Controllers
 
         // PUT /autores/{id}
         [HttpPut("{id}")]
-        public IActionResult AtualizarAutor(int id, CriarAutorDto dto)
+        public IActionResult AtualizarAutor(int id, [FromBody] AutorDto dto)
         {
             var autor = _context.Autores.Find(id);
-
             if (autor == null)
                 return NotFound("Autor não encontrado.");
 
             autor.Nome = dto.Nome;
             autor.Email = dto.Email;
-
             _context.SaveChanges();
 
             return Ok(autor);
@@ -75,7 +75,6 @@ namespace BlogAPI.Controllers
         public IActionResult RemoverAutor(int id)
         {
             var autor = _context.Autores.Find(id);
-
             if (autor == null)
                 return NotFound("Autor não encontrado.");
 
@@ -90,11 +89,11 @@ namespace BlogAPI.Controllers
         public IActionResult PostsDoAutor(int id)
         {
             var autorExiste = _context.Autores.Any(a => a.Id == id);
-
             if (!autorExiste)
                 return NotFound("Autor não encontrado.");
 
             var posts = _context.Posts
+                .Include(p => p.Autor)
                 .Where(p => p.AutorId == id)
                 .ToList();
 
