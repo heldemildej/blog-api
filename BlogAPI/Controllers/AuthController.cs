@@ -1,7 +1,6 @@
 ﻿using BlogApi.DTOs;
 using BlogApi.Models;
 using BlogAPI.Data;
-using BCrypt.Net;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -9,7 +8,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace BlogApi.Controllers
+namespace BlogAPI.Controllers
 {
     [ApiController]
     [Route("auth")]
@@ -24,8 +23,9 @@ namespace BlogApi.Controllers
             _config = config;
         }
 
-        [HttpPost("registrar")]
-        public IActionResult Registrar(RegistrarUsuarioDto dto)
+        // POST /auth/register
+        [HttpPost("register")]
+        public IActionResult Register([FromBody] RegistrarUsuarioDto dto)
         {
             if (_context.Usuarios.Any(u => u.Email == dto.Email))
                 return BadRequest("Email já cadastrado.");
@@ -34,7 +34,8 @@ namespace BlogApi.Controllers
             {
                 Nome = dto.Nome,
                 Email = dto.Email,
-                SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha)
+                SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha),
+                Role = "User"
             };
 
             _context.Usuarios.Add(usuario);
@@ -43,8 +44,9 @@ namespace BlogApi.Controllers
             return Ok("Usuário criado com sucesso.");
         }
 
+        // POST /auth/login
         [HttpPost("login")]
-        public IActionResult Login(LoginDto dto)
+        public IActionResult Login([FromBody] LoginDto dto)
         {
             var usuario = _context.Usuarios.FirstOrDefault(u => u.Email == dto.Email);
 
@@ -55,21 +57,46 @@ namespace BlogApi.Controllers
             return Ok(new { token });
         }
 
+        // GET /auth/me
         [Authorize]
         [HttpGet("me")]
         public IActionResult Me()
         {
             return Ok(new
             {
-                Usuario = User.Identity?.Name,
+                Nome = User.Identity?.Name,
+                Email = User.FindFirst(ClaimTypes.Email)?.Value,
                 Role = User.FindFirst(ClaimTypes.Role)?.Value
             });
         }
 
+        // POST /auth/refresh (versão simples)
+        [Authorize]
+        [HttpPost("refresh")]
+        public IActionResult Refresh()
+        {
+            var nome = User.Identity?.Name;
+            var email = User.FindFirst(ClaimTypes.Email)?.Value;
+            var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (email == null)
+                return Unauthorized();
+
+            var usuario = _context.Usuarios.FirstOrDefault(u => u.Email == email);
+            if (usuario == null)
+                return Unauthorized();
+
+            var novoToken = GerarToken(usuario);
+            return Ok(new { token = novoToken });
+        }
+
+        //-----> JWT
         private string GerarToken(Usuario usuario)
         {
             var jwt = _config.GetSection("Jwt");
-            var chave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["ChaveSecreta"]));
+            var chave = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(jwt["ChaveSecreta"])
+            );
 
             var credenciais = new SigningCredentials(chave, SecurityAlgorithms.HmacSha256);
 
@@ -84,7 +111,9 @@ namespace BlogApi.Controllers
                 issuer: jwt["Emissor"],
                 audience: jwt["Audiencia"],
                 claims: claims,
-                expires: DateTime.Now.AddMinutes(int.Parse(jwt["ExpiracaoEmMinutos"])),
+                expires: DateTime.UtcNow.AddMinutes(
+                    int.Parse(jwt["ExpiracaoEmMinutos"])
+                ),
                 signingCredentials: credenciais
             );
 
