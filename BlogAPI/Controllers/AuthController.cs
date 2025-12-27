@@ -1,12 +1,10 @@
 ﻿using BlogApi.DTOs;
 using BlogApi.Models;
 using BlogAPI.Data;
+using BlogAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 
 namespace BlogAPI.Controllers
 {
@@ -15,12 +13,12 @@ namespace BlogAPI.Controllers
     public class AuthController : ControllerBase
     {
         private readonly BlogContext _context;
-        private readonly IConfiguration _config;
+        private readonly JwtService _jwtService;
 
-        public AuthController(BlogContext context, IConfiguration config)
+        public AuthController(BlogContext context, JwtService jwtService)
         {
             _context = context;
-            _config = config;
+            _jwtService = jwtService;
         }
 
         // POST /auth/register
@@ -46,14 +44,15 @@ namespace BlogAPI.Controllers
 
         // POST /auth/login
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginDto dto)
+        public IActionResult Login(LoginDto dto)
         {
             var usuario = _context.Usuarios.FirstOrDefault(u => u.Email == dto.Email);
 
             if (usuario == null || !BCrypt.Net.BCrypt.Verify(dto.Senha, usuario.SenhaHash))
-                return Unauthorized("Credenciais inválidas.");
+                return Unauthorized("Credenciais inválidas");
 
-            var token = GerarToken(usuario);
+            var token = _jwtService.GerarToken(usuario);
+
             return Ok(new { token });
         }
 
@@ -70,14 +69,12 @@ namespace BlogAPI.Controllers
             });
         }
 
-        // POST /auth/refresh (versão simples)
+        // POST /auth/refresh
         [Authorize]
         [HttpPost("refresh")]
         public IActionResult Refresh()
         {
-            var nome = User.Identity?.Name;
             var email = User.FindFirst(ClaimTypes.Email)?.Value;
-            var role = User.FindFirst(ClaimTypes.Role)?.Value;
 
             if (email == null)
                 return Unauthorized();
@@ -86,38 +83,8 @@ namespace BlogAPI.Controllers
             if (usuario == null)
                 return Unauthorized();
 
-            var novoToken = GerarToken(usuario);
+            var novoToken = _jwtService.GerarToken(usuario);
             return Ok(new { token = novoToken });
-        }
-
-        //-----> JWT
-        private string GerarToken(Usuario usuario)
-        {
-            var jwt = _config.GetSection("Jwt");
-            var chave = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(jwt["ChaveSecreta"])
-            );
-
-            var credenciais = new SigningCredentials(chave, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[]
-            {
-                new Claim(ClaimTypes.Name, usuario.Nome),
-                new Claim(ClaimTypes.Email, usuario.Email),
-                new Claim(ClaimTypes.Role, usuario.Role)
-            };
-
-            var token = new JwtSecurityToken(
-                issuer: jwt["Emissor"],
-                audience: jwt["Audiencia"],
-                claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(
-                    int.Parse(jwt["ExpiracaoEmMinutos"])
-                ),
-                signingCredentials: credenciais
-            );
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }

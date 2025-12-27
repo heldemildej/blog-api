@@ -4,31 +4,45 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-public class JwtService
+namespace BlogAPI.Services
 {
-    private readonly string _chave = "ChaveSecreta";
-
-    public string GerarToken(Usuario usuario)
+    public class JwtService
     {
-        var claims = new[]
+        private readonly string _chave;
+
+        public JwtService()
         {
-            new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
-            new Claim(ClaimTypes.Email, usuario.Email),
-            new Claim(ClaimTypes.Role, usuario.Role)
-        };
+            _chave = Chave.Segredo;
+        }
 
-        var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_chave)
-        );
+        public string GerarToken(Usuario usuario)
+        {
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
+                new Claim(ClaimTypes.Name, usuario.Nome),
+                new Claim(ClaimTypes.Email, usuario.Email),
+                new Claim(ClaimTypes.Role, usuario.Role)
+            };
 
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var key = new SymmetricSecurityKey(
+                Encoding.ASCII.GetBytes(_chave)
+            );
 
-        var token = new JwtSecurityToken(
-            claims: claims,
-            expires: DateTime.UtcNow.AddHours(2),
-            signingCredentials: creds
-        );
+            var creds = new SigningCredentials(
+                key,
+                SecurityAlgorithms.HmacSha256
+            );
 
-        return new JwtSecurityTokenHandler().WriteToken(token);
+            var token = new JwtSecurityToken(
+                issuer: "BlogApi",
+                audience: "BlogApiUsuarios",
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(2),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
     }
 }
